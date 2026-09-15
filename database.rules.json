@@ -5,8 +5,8 @@
         "messages": {
           ".read": "auth != null",
           "$messageId": {
-            ".write": "auth != null && newData.exists()",
-            ".validate": "newData.hasChildren(['uid','username','text','timestamp']) && newData.child('uid').val() == auth.uid && newData.child('username').isString() && newData.child('username').val().length >= 2 && newData.child('username').val().length <= 24 && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 1000 && newData.child('timestamp').isNumber()"
+            ".write": "auth != null && !data.exists() && newData.exists() && newData.child('uid').val() == auth.uid",
+            ".validate": "newData.hasChildren(['uid','username','text','timestamp']) && newData.child('uid').isString() && newData.child('uid').val() == auth.uid && newData.child('username').isString() && newData.child('username').val().length >= 2 && newData.child('username').val().length <= 24 && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 1000 && newData.child('timestamp').isNumber()"
           }
         }
       }
