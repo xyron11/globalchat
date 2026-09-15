@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0d1117">
+  <title>GlobalChat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">G</div>
+        <div>
+          <h1>GlobalChat</h1>
+          <span>Realtime public chat</span>
+        </div>
+      </div>
+
+      <div class="user-card">
+        <div class="avatar" id="profileAvatar">?</div>
+        <div class="user-meta">
+          <strong id="profileName">Guest</strong>
+          <span><i class="dot"></i> Online</span>
+        </div>
+        <button class="icon-btn" id="changeUserBtn" title="Ganti username">✎</button>
+      </div>
+
+      <div class="sidebar-info">
+        <div class="info-title">Global Room</div>
+        <div class="info-row">
+          <span>Realtime</span>
+          <span class="pill">LIVE</span>
+        </div>
+        <p>Pesan tersimpan di Firebase Realtime Database dan tidak dihapus otomatis.</p>
+      </div>
+    </aside>
+
+    <main class="chat-panel">
+      <header class="chat-header">
+        <div>
+          <div class="room-title">
+            <span class="room-icon">#</span>
+            <div>
+              <h2>Global Room</h2>
+              <span id="connectionStatus">Menghubungkan…</span>
+            </div>
+          </div>
+        </div>
+        <button class="icon-btn" id="clearInputBtn" title="Bersihkan input">⌫</button>
+      </header>
+
+      <section class="messages" id="messages" aria-live="polite"></section>
+
+      <div class="typing" id="typingIndicator"></div>
+
+      <form class="composer" id="messageForm">
+        <input id="messageInput" maxlength="1000" autocomplete="off" placeholder="Tulis pesan..." aria-label="Pesan">
+        <button class="send-btn" type="submit">
+          <span>Kirim</span>
+          <span class="send-arrow">➜</span>
+        </button>
+      </form>
+      <div class="composer-note">Enter untuk mengirim • Maks. 1000 karakter</div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="usernameModal">
+    <div class="modal">
+      <div class="modal-badge">G</div>
+      <h3>Masuk ke GlobalChat</h3>
+      <p>Masukkan username. Tidak perlu email atau password.</p>
+      <form id="usernameForm">
+        <input id="usernameInput" maxlength="24" autocomplete="nickname" placeholder="Contoh: Danz" required>
+        <button type="submit">Masuk ke Chat</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
