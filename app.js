@@ -11,6 +11,7 @@ import {
 const firebaseConfig = {
   apiKey: "AIzaSyC5foKHPojesxz2IuUBSF9NHlX47Gtt_Oo",
   authDomain: "globalchat-5377f.firebaseapp.com",
+  databaseURL: "https://globalchat-5377f-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "globalchat-5377f",
   storageBucket: "globalchat-5377f.firebasestorage.app",
   messagingSenderId: "143079466106",
