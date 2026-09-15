@@ -12,6 +12,7 @@ const firebaseConfig = {
   appId: "1:143079466106:web:b94d5a8928a639067287c3",
   measurementId: "G-SXS33MKBQS"
 };
+
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
 const $=id=>document.getElementById(id);
 const els={messages:$("messages"),form:$("messageForm"),input:$("messageInput"),modal:$("usernameModal"),usernameForm:$("usernameForm"),usernameInput:$("usernameInput"),profileName:$("profileName"),profileAvatar:$("profileAvatar"),status:$("connectionStatus"),change:$("changeUserBtn"),clear:$("clearInputBtn"),toast:$("toast"),action:$("messageActionModal"),del:$("deleteForEveryoneBtn"),cancel:$("cancelDeleteBtn")};
