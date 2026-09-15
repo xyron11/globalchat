@@ -1,21 +1,13 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 import {
-  getAuth,
-  signInAnonymously,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-import {
-  getDatabase,
-  ref,
-  push,
-  set,
-  query,
-  orderByChild,
-  limitToLast,
-  onValue
+  getDatabase, ref, push, set, query, orderByChild, limitToLast, onValue
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
-
+/*
+  PASTE CONFIG FIREBASE WEB APP DI SINI.
+  Pastikan databaseURL berasal dari Realtime Database milik project yang sama.
+*/
 const firebaseConfig = {
   apiKey: "AIzaSyC5foKHPojesxz2IuUBSF9NHlX47Gtt_Oo",
   authDomain: "globalchat-5377f.firebaseapp.com",
@@ -30,76 +22,71 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
+const $ = (id) => document.getElementById(id);
 const els = {
-  messages: document.getElementById("messages"),
-  form: document.getElementById("messageForm"),
-  input: document.getElementById("messageInput"),
-  modal: document.getElementById("usernameModal"),
-  usernameForm: document.getElementById("usernameForm"),
-  usernameInput: document.getElementById("usernameInput"),
-  profileName: document.getElementById("profileName"),
-  profileAvatar: document.getElementById("profileAvatar"),
-  connectionStatus: document.getElementById("connectionStatus"),
-  changeUserBtn: document.getElementById("changeUserBtn"),
-  clearInputBtn: document.getElementById("clearInputBtn"),
-  toast: document.getElementById("toast")
+  messages: $("messages"),
+  form: $("messageForm"),
+  input: $("messageInput"),
+  modal: $("usernameModal"),
+  usernameForm: $("usernameForm"),
+  usernameInput: $("usernameInput"),
+  profileName: $("profileName"),
+  profileAvatar: $("profileAvatar"),
+  connectionStatus: $("connectionStatus"),
+  changeUserBtn: $("changeUserBtn"),
+  clearInputBtn: $("clearInputBtn"),
+  toast: $("toast")
 };
 
 let currentUser = null;
 let username = localStorage.getItem("globalchat_username") || "";
-let unsubscribeMessages = null;
+let stopMessages = null;
+let connectedToDatabase = false;
 
 function safeName(name) {
   return name.trim().replace(/\s+/g, " ").slice(0, 24);
 }
-
 function avatarLetter(name) {
   return (name || "?").trim().charAt(0).toUpperCase() || "?";
 }
-
-function showToast(text) {
-  els.toast.textContent = text;
+function toast(message) {
+  els.toast.textContent = message;
   els.toast.classList.add("show");
-  setTimeout(() => els.toast.classList.remove("show"), 2200);
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => els.toast.classList.remove("show"), 3200);
 }
-
+function setStatus(text, ok=false) {
+  els.connectionStatus.textContent = text;
+  els.connectionStatus.style.color = ok ? "#83dfa7" : "";
+}
 function updateProfile() {
-  const shown = username || "Guest";
-  els.profileName.textContent = shown;
-  els.profileAvatar.textContent = avatarLetter(shown);
+  const name = username || "Guest";
+  els.profileName.textContent = name;
+  els.profileAvatar.textContent = avatarLetter(name);
 }
-
 function openUsernameModal() {
   els.modal.classList.remove("hidden");
   els.usernameInput.value = username;
-  setTimeout(() => els.usernameInput.focus(), 30);
+  setTimeout(() => els.usernameInput.focus(), 50);
 }
-
 function closeUsernameModal() {
   els.modal.classList.add("hidden");
 }
-
 function formatTime(timestamp) {
-  const date = new Date(timestamp || Date.now());
-  return new Intl.DateTimeFormat("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
+  return new Intl.DateTimeFormat("id-ID", {hour:"2-digit", minute:"2-digit"})
+    .format(new Date(timestamp || Date.now()));
 }
-
 function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return String(value ?? "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
 }
 
 function renderMessages(data) {
   els.messages.innerHTML = "";
-  const entries = Object.entries(data || {}).map(([id, msg]) => ({ id, ...msg }));
-  entries.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  const entries = Object.entries(data || {})
+    .map(([id, msg]) => ({ id, ...msg }))
+    .sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
 
   if (!entries.length) {
     els.messages.innerHTML = `
@@ -107,8 +94,7 @@ function renderMessages(data) {
         <div class="empty-icon">💬</div>
         <strong>Belum ada pesan</strong>
         <p>Jadilah orang pertama yang memulai percakapan di Global Room.</p>
-      </div>
-    `;
+      </div>`;
     return;
   }
 
@@ -116,7 +102,6 @@ function renderMessages(data) {
     const mine = msg.uid === currentUser?.uid;
     const row = document.createElement("div");
     row.className = `message-row ${mine ? "mine" : ""}`;
-
     row.innerHTML = `
       ${mine ? "" : `<div class="message-avatar">${escapeHtml(avatarLetter(msg.username))}</div>`}
       <div class="message-block">
@@ -126,44 +111,57 @@ function renderMessages(data) {
       </div>
       ${mine ? `<div class="message-avatar">${escapeHtml(avatarLetter(msg.username))}</div>` : ""}
     `;
-
     els.messages.appendChild(row);
   }
-
   els.messages.scrollTop = els.messages.scrollHeight;
 }
 
 function subscribeMessages() {
-  if (unsubscribeMessages) unsubscribeMessages();
+  if (stopMessages) stopMessages();
 
-  const messagesRef = query(
+  const messagesQuery = query(
     ref(db, "rooms/global/messages"),
     orderByChild("timestamp"),
     limitToLast(250)
   );
 
-  unsubscribeMessages = onValue(
-    messagesRef,
-    (snapshot) => {
-      renderMessages(snapshot.val());
-      els.connectionStatus.textContent = "Realtime • tersambung";
-      els.connectionStatus.style.color = "#83dfa7";
+  stopMessages = onValue(
+    messagesQuery,
+    snap => {
+      renderMessages(snap.val());
+      if (connectedToDatabase) setStatus("Realtime • tersambung", true);
     },
-    (error) => {
-      console.error(error);
-      els.connectionStatus.textContent = "Gagal membaca chat";
-      els.connectionStatus.style.color = "#ff8793";
-      showToast("Tidak bisa membaca database. Cek rules Firebase.");
+    error => {
+      console.error("READ ERROR:", error);
+      setStatus("Database ditolak");
+      toast(`Database: ${error.code || error.message}`);
     }
   );
 }
 
+// Ini indikator koneksi DATABASE yang sebenarnya.
+onValue(ref(db, ".info/connected"), snap => {
+  connectedToDatabase = snap.val() === true;
+  if (connectedToDatabase) {
+    setStatus("Realtime • tersambung", true);
+  } else {
+    setStatus("Realtime • menghubungkan…");
+  }
+}, error => {
+  console.error("CONNECTION ERROR:", error);
+  setStatus("Database gagal");
+  toast("Gagal mengecek koneksi Realtime Database.");
+});
+
 async function sendMessage(text) {
   const trimmed = text.trim();
-  if (!trimmed || !currentUser || !username) return;
+  if (!currentUser) throw new Error("AUTH_NOT_READY");
+  if (!username) throw new Error("USERNAME_REQUIRED");
+  if (!connectedToDatabase) throw new Error("DATABASE_OFFLINE");
+  if (!trimmed) return;
 
-  const newMessageRef = push(ref(db, "rooms/global/messages"));
-  await set(newMessageRef, {
+  const messageRef = push(ref(db, "rooms/global/messages"));
+  await set(messageRef, {
     uid: currentUser.uid,
     username,
     text: trimmed,
@@ -171,45 +169,50 @@ async function sendMessage(text) {
   });
 }
 
-els.form.addEventListener("submit", async (event) => {
-  event.preventDefault();
+els.form.addEventListener("submit", async (e) => {
+  e.preventDefault();
   const text = els.input.value;
   if (!text.trim()) return;
 
+  els.input.disabled = true;
   try {
-    els.input.disabled = true;
     await sendMessage(text);
     els.input.value = "";
-  } catch (error) {
-    console.error(error);
-    showToast("Pesan gagal dikirim. Cek konfigurasi Firebase.");
+  } catch (err) {
+    console.error("SEND ERROR:", err);
+    const code = err?.code || err?.message || "UNKNOWN_ERROR";
+    if (String(code).includes("PERMISSION_DENIED")) {
+      toast("PERMISSION_DENIED: cek Rules Realtime Database.");
+    } else if (String(code).includes("DATABASE_OFFLINE")) {
+      toast("Database belum tersambung. Cek databaseURL dan Realtime Database.");
+    } else {
+      toast(`Pesan gagal dikirim: ${code}`);
+    }
   } finally {
     els.input.disabled = false;
     els.input.focus();
   }
 });
 
-els.input.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
+els.input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
     els.form.requestSubmit();
   }
 });
 
-els.usernameForm.addEventListener("submit", (event) => {
-  event.preventDefault();
+els.usernameForm.addEventListener("submit", e => {
+  e.preventDefault();
   const value = safeName(els.usernameInput.value);
-
   if (value.length < 2) {
-    showToast("Username minimal 2 karakter.");
+    toast("Username minimal 2 karakter.");
     return;
   }
-
   username = value;
   localStorage.setItem("globalchat_username", username);
   updateProfile();
   closeUsernameModal();
-  showToast(`Selamat datang, ${username}!`);
+  toast(`Selamat datang, ${username}!`);
 });
 
 els.changeUserBtn.addEventListener("click", openUsernameModal);
@@ -220,20 +223,21 @@ els.clearInputBtn.addEventListener("click", () => {
 
 updateProfile();
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, user => {
   if (user) {
     currentUser = user;
-    els.connectionStatus.textContent = "Realtime • tersambung";
     subscribeMessages();
     if (!username) openUsernameModal();
+  } else {
+    setStatus("Auth belum tersambung");
   }
 });
 
 try {
   await signInAnonymously(auth);
 } catch (error) {
-  console.error(error);
-  els.connectionStatus.textContent = "Auth gagal";
-  els.connectionStatus.style.color = "#ff8793";
-  showToast("Anonymous Auth belum diaktifkan di Firebase.");
+  console.error("AUTH ERROR:", error);
+  setStatus("Auth gagal");
+  toast(`Anonymous Auth: ${error.code || error.message}`);
+  openUsernameModal();
 }
